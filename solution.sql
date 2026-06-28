@@ -51,7 +51,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE  PROCEDURE create_order(p_customer_id int)
+CREATE PROCEDURE create_order(p_customer_id int)
 LANGUAGE plpgsql AS $$
 BEGIN
     IF NOT EXISTS
@@ -96,3 +96,40 @@ BEGIN
     WHERE product_id = p_product_id;
 END;
 $$;
+
+CREATE FUNCTION trg_update_order_total()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_order_id int;
+BEGIN
+    IF (TG_OP = 'DELETE')
+        THEN v_order_id := OLD.order_id;
+    ELSE
+        v_order_id := NEW.order_id;
+    END IF;
+    UPDATE orders
+    SET total_amount = calculate_order_total(v_order_id)
+    WHERE order_id = v_order_id;
+    IF (TG_OP = 'DELETE')
+        THEN RETURN OLD;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_order_total_trigger
+AFTER INSERT OR UPDATE OR DELETE ON order_items
+FOR EACH ROW EXECUTE FUNCTION trg_update_order_total();
+
+CREATE FUNCTION trg_log_new_order()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO order_log (order_id, customer_id, action, log_date)
+    VALUES (NEW.order_id, NEW.customer_id, 'ORDER_CREATED', CURRENT_TIMESTAMP);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER log_new_order_trigger
+AFTER INSERT ON orders
+FOR EACH ROW EXECUTE FUNCTION trg_log_new_order();
