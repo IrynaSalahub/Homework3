@@ -133,3 +133,22 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER log_new_order_trigger
 AFTER INSERT ON orders
 FOR EACH ROW EXECUTE FUNCTION trg_log_new_order();
+
+INSERT INTO customers (full_name, email, balance) VALUES ('Jane Doe', 'jane.doe@example.com', 1000.00);
+INSERT INTO products (product_name, price, stock_quantity) VALUES ('Wireless Headphones', 150.00, 10);
+CALL create_order(5);
+SELECT * FROM order_log;
+CALL add_product_to_order(4, 6, 2);
+SELECT * FROM orders WHERE order_id = 4;
+SELECT product_name, stock_quantity FROM products WHERE product_id = 6;
+
+explain analyze
+select
+    oi.order_id,
+    p.product_name,
+    oi.quantity,
+    oi.price,
+    oi.quantity * oi.price as item_total
+from order_items oi
+join products p on oi.product_id = p.product_id
+where oi.order_id = 1;
